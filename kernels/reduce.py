@@ -134,4 +134,7 @@ def kernel_fn(x: torch.Tensor, dim: int = -1) -> torch.Tensor:
             BLOCK_SIZE=BLOCK_SIZE,
         )
 
-        return out_flat.to(x.dtype).view(out_shape)
+        # After permutation, the output follows permuted dim order (without the
+        # reduce dim). Build the correct shape from the permuted order.
+        permuted_out_shape = [x.shape[d] for d in perm[:-1]]
+        return out_flat.to(x.dtype).view(permuted_out_shape)

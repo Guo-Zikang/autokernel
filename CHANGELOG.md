@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.3.0 -- 2026-03-13
+
+### AMD ROCm GPU Support (PR #3 by @andyluo7)
+
+- Added AMD Instinct MI300X, MI325X, MI350X, MI355X to GPU database with correct peak FP16 TFLOPS, memory bandwidth, and L2 cache specs
+- Added `gcnArchName`-based GPU detection for ROCm (device name is often empty on ROCm; `gcnArchName` like `gfx942` is always available)
+- Guarded `clock_rate` access behind `hasattr` + `> 0` check (ROCm devices report `clock_rate=0`)
+- Applied same fixes to `profile.py` fallback detector
+- Tested on AMD Instinct MI300X (gfx942, ROCm 6.3) and MI350X (gfx950, ROCm 7.2)
+
+### Bug Fixes
+
+- **Fixed `verify.py` SyntaxError on Python 3.13+**: moved `global` declaration before variable usage in `main()` -- file would not even import on Python 3.13/3.14
+- **Fixed CUDA flash_attention `sm_scale` parameter being ignored**: the `sm_scale` argument was accepted but the kernel hardcoded `rsqrtf(D)` instead of using it -- now correctly passes `sm_scale` through to the CUDA kernel
+- **Fixed CUDA cross_entropy returning wrong dtype**: loss was cast back to input dtype instead of always returning `float32` (matching `F.cross_entropy` behavior)
+- **Fixed Triton rotary_embedding broadcasting truncation**: `cos`/`sin` repeat used integer division which truncated when `n_rows` was not a multiple of `cos.shape[0]` -- now uses ceiling division and slices to exact size
+- **Fixed Triton reduce output shape for non-last-dim reductions**: after permuting to move the reduce dim last, the output was reshaped using the original dim order instead of the permuted order
+
 ## v1.2.0 -- 2026-03-12
 
 ### Enhanced Profiler (Issue #1)

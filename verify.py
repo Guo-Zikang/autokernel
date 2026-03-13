@@ -975,6 +975,8 @@ def _output_shape_str(output: Any) -> str:
 # ---------------------------------------------------------------------------
 
 def main() -> None:
+    global WORKSPACE_DIR, ORCHESTRATION_STATE, WARMUP_RUNS, TIMED_RUNS
+
     parser = argparse.ArgumentParser(
         description="AutoKernel End-to-End Verifier",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -1040,12 +1042,10 @@ def main() -> None:
     args = parser.parse_args()
 
     # Override globals if workspace specified
-    global WORKSPACE_DIR, ORCHESTRATION_STATE
     if args.workspace:
         WORKSPACE_DIR = os.path.abspath(args.workspace)
         ORCHESTRATION_STATE = os.path.join(WORKSPACE_DIR, "orchestration_state.json")
 
-    global WARMUP_RUNS, TIMED_RUNS
     WARMUP_RUNS = args.warmup
     TIMED_RUNS = args.timed
 

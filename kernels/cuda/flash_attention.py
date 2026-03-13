@@ -54,7 +54,8 @@ flash_attention_kernel(
     const half* __restrict__ K,  // [B, H, N, D]
     const half* __restrict__ V,  // [B, H, N, D]
     half* __restrict__ O,        // [B, H, N, D]
-    int B_size, int H, int N, int D
+    int B_size, int H, int N, int D,
+    float sm_scale
 ) {
     const int bh = blockIdx.y;  // batch * head index
     const int tile_q = blockIdx.x;  // query tile index
@@ -134,8 +135,8 @@ flash_attention_kernel(
                 float k_val = __half2float(K_bh[(kv_start + ki) * D + d]);
                 score += smem_Q[qi][d] * k_val;
             }
-            // Scale by 1/sqrt(D)
-            score *= rsqrtf((float)D);
+            // Scale by sm_scale (typically 1/sqrt(D))
+            score *= sm_scale;
 
             // Causal mask: if query position < key position, mask out
             int global_q = q_start + qi;
@@ -204,7 +205,7 @@ flash_attention_kernel(
 }
 
 torch::Tensor flash_attention_cuda(
-    torch::Tensor Q, torch::Tensor K, torch::Tensor V
+    torch::Tensor Q, torch::Tensor K, torch::Tensor V, double sm_scale
 ) {
     TORCH_CHECK(Q.is_cuda(), "Q must be CUDA");
     TORCH_CHECK(Q.dim() == 4, "Q must be [B, H, N, D]");
@@ -227,7 +228,7 @@ torch::Tensor flash_attention_cuda(
         reinterpret_cast<const half*>(K.data_ptr<at::Half>()),
         reinterpret_cast<const half*>(V.data_ptr<at::Half>()),
         reinterpret_cast<half*>(O.data_ptr<at::Half>()),
-        B, H, N, D
+        B, H, N, D, (float)sm_scale
     );
 
     return O;
@@ -251,6 +252,9 @@ def kernel_fn(
     """Entry point called by bench.py. Must match reference.flash_attention_ref signature."""
     assert Q.is_cuda and K.is_cuda and V.is_cuda
 
+    if sm_scale is None:
+        sm_scale = Q.shape[-1] ** -0.5
+
     orig_dtype = Q.dtype
     if Q.dtype != torch.float16:
         Q = Q.to(torch.float16)
@@ -260,7 +264,7 @@ def kernel_fn(
         V = V.to(torch.float16)
 
     mod = _get_module()
-    O = mod.flash_attention_cuda(Q, K, V)
+    O = mod.flash_attention_cuda(Q, K, V, sm_scale)
 
     if orig_dtype != torch.float16:
         O = O.to(orig_dtype)

@@ -152,14 +152,11 @@ def kernel_fn(logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
     """Entry point called by bench.py. Must match reference.cross_entropy_ref signature."""
     assert logits.is_cuda and targets.is_cuda
 
-    orig_dtype = logits.dtype
     if logits.dtype != torch.float16:
         logits = logits.to(torch.float16)
 
     mod = _get_module()
     loss = mod.cross_entropy_cuda(logits, targets)
 
-    if orig_dtype != torch.float16:
-        loss = loss.to(orig_dtype)
-
-    return loss
+    # Loss is always returned as float32 (scalar loss, matches F.cross_entropy)
+    return loss.to(torch.float32)

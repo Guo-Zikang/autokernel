@@ -106,11 +106,11 @@ def kernel_fn(
     cos_flat = cos.contiguous().view(-1, half_dim)
     sin_flat = sin.contiguous().view(-1, half_dim)
 
-    # Handle broadcasting: if cos/sin have fewer rows, expand
+    # Handle broadcasting: if cos/sin have fewer rows, expand to match
     if cos_flat.shape[0] < n_rows:
-        repeat_factor = n_rows // cos_flat.shape[0]
-        cos_flat = cos_flat.repeat(repeat_factor, 1)
-        sin_flat = sin_flat.repeat(repeat_factor, 1)
+        repeat_factor = (n_rows + cos_flat.shape[0] - 1) // cos_flat.shape[0]
+        cos_flat = cos_flat.repeat(repeat_factor, 1)[:n_rows]
+        sin_flat = sin_flat.repeat(repeat_factor, 1)[:n_rows]
 
     out = torch.empty_like(x_flat)
 
